@@ -1,0 +1,26 @@
+{
+  "name": "@whi/authentic-codecs",
+  "version": "0.1.0",
+  "description": "Encode/decode tools for 'Authentic' style encodings",
+  "main": "src/index.js",
+  "dependencies": {
+    "@whi/stdlog": "^0.3.0",
+    "multihashes": "^0.4.19"
+  },
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^7.1.2"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Matthew Brisebois",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mjbrisebois/authentic-codecs"
+  },
+  "files": [
+    "README.md"
+  ]
+}
