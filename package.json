@@ -8,11 +8,11 @@
     "multihashes": "^0.4.19"
   },
   "devDependencies": {
-    "chai": "^4.2.0",
-    "mocha": "^7.1.2"
+    "chai": "^6.3.0",
+    "mocha": "^12.0.3"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha --recursive ./tests"
   },
   "author": "Matthew Brisebois",
   "license": "ISC",
