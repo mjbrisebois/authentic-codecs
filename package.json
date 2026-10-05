@@ -28,6 +28,8 @@
     "url": "https://github.com/mjbrisebois/authentic-codecs"
   },
   "files": [
-    "README.md"
+    "src/",
+    "README.md",
+    "CHANGELOG.md"
   ]
 }
