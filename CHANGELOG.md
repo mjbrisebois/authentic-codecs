@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 - 2026-10-04
 
 Runs in Cloudflare Workers and browsers as well as Node.js, with no Node.js compatibility layer
 required. This release contains breaking changes; see [Upgrading](#upgrading) below.

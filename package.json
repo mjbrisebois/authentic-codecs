@@ -1,6 +1,6 @@
 {
   "name": "@whi/authentic-codecs",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Encode/decode tools for 'Authentic' style encodings",
   "type": "module",
   "main": "src/index.js",
