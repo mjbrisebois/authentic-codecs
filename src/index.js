@@ -124,7 +124,7 @@ const Authentic_prefixes		= {
 
 
 class Authentic extends Uint8Array {
-    [Symbol.toStringTag]		= Authentic.name;
+    [Symbol.toStringTag]		= "Authentic";
 
     constructor ( length, bytes ) {
 	super( length );
@@ -158,7 +158,7 @@ class Authentic extends Uint8Array {
 }
 
 class C1 extends Authentic {
-    [Symbol.toStringTag]		= C1.name;
+    [Symbol.toStringTag]		= "C1";
 
     static prefix			= Authentic_prefixes.CollectionID.v1;
     static length			= 26;
@@ -169,7 +169,7 @@ class C1 extends Authentic {
 }
 
 class K1 extends Authentic {
-    [Symbol.toStringTag]		= K1.name;
+    [Symbol.toStringTag]		= "K1";
 
     static prefix			= Authentic_prefixes.AccessKeyID.v1;
     static length			= 12;
@@ -203,7 +203,7 @@ class K1 extends Authentic {
 }
 
 class U1 extends Authentic {
-    [Symbol.toStringTag]		= U1.name;
+    [Symbol.toStringTag]		= "U1";
 
     static prefix			= Authentic_prefixes.CredentialID.v1;
     static length			= 26;

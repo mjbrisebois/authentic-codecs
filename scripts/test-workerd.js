@@ -66,8 +66,6 @@ const bundle				= await esbuild.build({
     platform:		"neutral",
     mainFields:		[ "browser", "module", "main" ],
     conditions:		[ "workerd", "worker", "browser" ],
-    // Matches wrangler's default bundling
-    keepNames:		true,
     plugins:		[{
 	name: "workerd-setup",
 	setup ( build ) {
