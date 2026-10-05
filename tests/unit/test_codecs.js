@@ -12,9 +12,11 @@ const U1_ENCODED			= "Auth_U1-AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBk=";
 const K1_ENCODED			= "Auth_K1-ZGVmZ2hpamtsbW5v";
 const K1_ACCESS_KEY			= K1_ENCODED + ".__79_Pv6-fj39vX08_Lx8O_u7ezr6uno5-bl5OPi4eDf3t3c29rZ2NfW1dTT0g==";
 
-// sha2-512 multihash of "hello" (standard base64)
+// sha2-512 multihash of "hello", in the package's URL-safe base64 and in the standard base64
+// used before 1.0
 const HELLO_BYTES			= Uint8Array.from( [ 104, 101, 108, 108, 111 ] );
-const HELLO_DIGEST			= "E0CbcdIkvWLzeF2W1GrT6j1zMZv7wokMqtri3/clGWc8pyMjw9mbpcEdfHrMbhS4xdoMRmNHXC5cOt70b3O83sBD";
+const HELLO_DIGEST			= "E0CbcdIkvWLzeF2W1GrT6j1zMZv7wokMqtri3_clGWc8pyMjw9mbpcEdfHrMbhS4xdoMRmNHXC5cOt70b3O83sBD";
+const HELLO_DIGEST_STANDARD		= "E0CbcdIkvWLzeF2W1GrT6j1zMZv7wokMqtri3/clGWc8pyMjw9mbpcEdfHrMbhS4xdoMRmNHXC5cOt70b3O83sBD";
 
 function bytes ( value ) {
     return Array.from( value );
@@ -201,6 +203,12 @@ function digest_tests () {
 	expect( bytes( resp )		).to.deep.equal( bytes( codecs.base64.decode( HELLO_DIGEST ) ).slice(2) );
     });
 
+    it("should decode a multihash in standard base64", async () => {
+	const resp			= codecs.digest.decode( HELLO_DIGEST_STANDARD );
+
+	expect( bytes( resp )		).to.deep.equal( bytes( codecs.digest.decode( HELLO_DIGEST ) ) );
+    });
+
     it("should fail to decode a multihash that is not sha2-512", async () => {
 	const sha256_multihash		= codecs.base64.encode( Uint8Array.from([ 0x12, 0x20, ...new Array(32).fill(0) ]) );
 
@@ -216,6 +224,16 @@ function digest_tests () {
     it("should verify bytes given as a base64 string against a string digest", async () => {
 	expect( codecs.digest.verify( "aGVsbG8=", HELLO_DIGEST )	).to.be.true;
 	expect( codecs.digest.verify( "aGVsbHg=", HELLO_DIGEST )	).to.be.false;
+    });
+
+    it("should verify against a digest in standard base64", async () => {
+	expect( codecs.digest.verify( HELLO_BYTES, HELLO_DIGEST_STANDARD )	).to.be.true;
+	expect( codecs.digest.verify( "aGVsbHg=", HELLO_DIGEST_STANDARD )	).to.be.false;
+    });
+
+    it("should not verify against a malformed digest", async () => {
+	expect( codecs.digest.verify( HELLO_BYTES, HELLO_DIGEST.slice( 0, -4 ) )	).to.be.false;
+	expect( codecs.digest.verify( HELLO_BYTES, "" )				).to.be.false;
     });
 
     it("should verify bytes against a digest given as bytes", async () => {
