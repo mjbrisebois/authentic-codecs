@@ -131,8 +131,16 @@ class Authentic extends Uint8Array {
 
 	if ( bytes === undefined )
 	    bytes			= randomBytes( length );
-	else if ( typeof bytes === "string" )
-	    bytes			= codecs.base64.decode( bytes ).slice(6);
+	else if ( typeof bytes === "string" ) {
+	    const decoded		= codecs.base64.decode( bytes );
+	    const expected		= this.constructor.prefix;
+	    const prefix		= decoded.subarray( 0, expected.length );
+
+	    if ( !prefix.every( (byte, i) => byte === expected[i] ) || prefix.length !== expected.length )
+		throw new Error(`expected prefix '${codecs.base64.encode( expected )}', found '${codecs.base64.encode( prefix )}'`);
+
+	    bytes			= decoded.slice( expected.length );
+	}
 
 	this.set( bytes, 0 );
     }

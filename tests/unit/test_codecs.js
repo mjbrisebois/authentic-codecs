@@ -60,13 +60,9 @@ function c1_tests () {
 	expect( bytes( resp )		).to.deep.equal( bytes( original ) );
     });
 
-    // Current behavior: the prefix is not checked when decoding, so a K1 string decodes as
-    // a C1 with its 12 bytes followed by zero padding.
-    it("should decode a K1 string without checking the prefix", async () => {
-	const resp			= new codecs.authentic.C1( K1_ENCODED );
-
-	expect( resp			).to.have.length( 26 );
-	expect( bytes( resp )		).to.deep.equal( [ ...bytes( BYTES_12 ), ...new Array(14).fill(0) ] );
+    it("should fail to decode a string with another type's prefix", async () => {
+	expect( () => new codecs.authentic.C1( K1_ENCODED ) ).to.throw( "expected prefix 'Auth_C1-', found 'Auth_K1-'" );
+	expect( () => new codecs.authentic.C1( U1_ENCODED ) ).to.throw( "expected prefix 'Auth_C1-', found 'Auth_U1-'" );
     });
 }
 
@@ -124,6 +120,12 @@ function k1_tests () {
 	expect( () => new codecs.authentic.K1( K1_ENCODED ) ).to.throw( "encoding expects 2 parts separated by '.', found 1 part(s)" );
     });
 
+    it("should fail to decode an access key with another type's prefix", async () => {
+	const secret			= K1_ACCESS_KEY.split(".")[1];
+
+	expect( () => new codecs.authentic.K1( C1_ENCODED + "." + secret ) ).to.throw( "expected prefix 'Auth_K1-', found 'Auth_C1-'" );
+    });
+
     it("should fail to decode a string when a secret argument is also given", async () => {
 	expect( () => new codecs.authentic.K1( K1_ACCESS_KEY, SECRET_46 ) ).to.throw( "Cannot specify argument[1] (secret) when decoding K1" );
     });
@@ -141,6 +143,10 @@ function u1_tests () {
     it("should encode and decode known values", async () => {
 	expect( new codecs.authentic.U1( BYTES_26 ).toString()		).to.equal( U1_ENCODED );
 	expect( bytes( new codecs.authentic.U1( U1_ENCODED ) )		).to.deep.equal( bytes( BYTES_26 ) );
+    });
+
+    it("should fail to decode a string with another type's prefix", async () => {
+	expect( () => new codecs.authentic.U1( C1_ENCODED ) ).to.throw( "expected prefix 'Auth_U1-', found 'Auth_C1-'" );
     });
 }
 
