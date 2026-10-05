@@ -1,59 +1,155 @@
-const path				= require('path');
-const log				= require('@whi/stdlog')(path.basename( __filename ), {
-    level: process.env.LOG_LEVEL || 'fatal',
-});
+import { sha512 }			from '@noble/hashes/sha2.js';
 
-const crypto				= require('crypto');
-const multihash				= require('multihashes');
-const assert				= require('assert');
+
+const BASE64_ALPHABET			= "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const BASE64_LOOKUP			= Object.fromEntries(
+    [ ...BASE64_ALPHABET ].map( (c, i) => [ c, i ] )
+);
+// URL-safe characters are also accepted when decoding
+BASE64_LOOKUP["-"]			= 62;
+BASE64_LOOKUP["_"]			= 63;
+
+// Max bytes that crypto.getRandomValues will fill in one call
+const RANDOM_CHUNK_SIZE			= 65536;
+
+// Multihash code and digest length for sha2-512
+const SHA2_512_CODE			= 0x13;
+const SHA2_512_LENGTH			= 64;
+
+
+function randomBytes ( length ) {
+    const bytes				= new Uint8Array( length );
+
+    for ( let i = 0; i < length; i += RANDOM_CHUNK_SIZE )
+	crypto.getRandomValues( bytes.subarray( i, i + RANDOM_CHUNK_SIZE ) );
+
+    return bytes;
+}
+
+function toBytes ( value ) {
+    if ( typeof value === "string" )
+	return new TextEncoder().encode( value );
+    if ( value instanceof ArrayBuffer )
+	return new Uint8Array( value );
+
+    return Uint8Array.from( value );
+}
+
+function concatBytes ( ...arrays ) {
+    const bytes				= new Uint8Array( arrays.reduce( (n, a) => n + a.length, 0 ) );
+
+    let offset				= 0;
+    for ( const array of arrays ) {
+	bytes.set( array, offset );
+	offset			       += array.length;
+    }
+
+    return bytes;
+}
+
+function base64Encode ( bytes ) {
+    let encoding			= "";
+
+    for ( let i = 0; i < bytes.length; i += 3 ) {
+	const n				= (bytes[i] << 16) | ((bytes[i+1] ?? 0) << 8) | (bytes[i+2] ?? 0);
+
+	encoding		       += BASE64_ALPHABET[ (n >> 18) & 63 ]
+	    + BASE64_ALPHABET[ (n >> 12) & 63 ]
+	    + ( i + 1 < bytes.length ? BASE64_ALPHABET[ (n >> 6) & 63 ] : "=" )
+	    + ( i + 2 < bytes.length ? BASE64_ALPHABET[ n & 63 ] : "=" );
+    }
+
+    return encoding;
+}
+
+// Lenient like Node's Buffer: accepts either alphabet, stops at padding, and skips unknown
+// characters
+function base64Decode ( encoding ) {
+    const values			= [];
+
+    for ( const c of encoding ) {
+	if ( c === "=" )
+	    break;
+	if ( c in BASE64_LOOKUP )
+	    values.push( BASE64_LOOKUP[c] );
+    }
+
+    const bytes				= new Uint8Array( Math.floor( values.length * 3 / 4 ) );
+
+    let bits				= 0;
+    let count				= 0;
+    let index				= 0;
+    for ( const value of values ) {
+	bits				= (bits << 6) | value;
+	count			       += 6;
+
+	if ( count >= 8 ) {
+	    count			       -= 8;
+	    bytes[index++]		= (bits >> count) & 255;
+	}
+    }
+
+    return bytes;
+}
+
+function readVarint ( bytes, offset ) {
+    let value				= 0;
+    let shift				= 0;
+
+    while ( true ) {
+	if ( offset >= bytes.length )
+	    throw new Error("multihash too short");
+
+	const byte			= bytes[offset++];
+	value			       += (byte & 127) * 2 ** shift;
+	shift			       += 7;
+
+	if ( (byte & 128) === 0 )
+	    return [ value, offset ];
+    }
+}
+
 
 const Authentic_prefixes		= {
     CollectionID: {
-	"v1": Buffer.from("Auth/C1+", "base64"),	// [ 2, 235, 97, 252, 45, 126 ]
+	"v1": base64Decode("Auth/C1+"),		// [ 2, 235, 97, 252, 45, 126 ]
     },
     AccessKeyID: {
-	"v1": Buffer.from("Auth/K1+", "base64"),	// [ 2, 235, 97, 252, 173, 126 ]
+	"v1": base64Decode("Auth/K1+"),		// [ 2, 235, 97, 252, 173, 126 ]
     },
     CredentialID: {
-	"v1": Buffer.from("Auth/U1+", "base64"),	// [ 2, 235, 97, 253, 77, 126 ]
+	"v1": base64Decode("Auth/U1+"),		// [ 2, 235, 97, 253, 77, 126 ]
     },
 };
-
-const code_type_map			= {
-    "C1": {
-	"prefix": Authentic_prefixes.CollectionID.v1,
-	"length": 26, // 32 total
-    },
-    "K1": {
-	"prefix": Authentic_prefixes.AccessKeyID.v1,
-	"length": 12, // 16 total
-    },
-};
-
-const prefix_code_map			= Object.entries( code_type_map )
-      .reduce((o, [code,type]) => {
-	  o[type.prefix] = code;
-	  return o;
-      }, {});
 
 
 class Authentic extends Uint8Array {
-    [Symbol.toStringTag]		= Authentic.name;
+    [Symbol.toStringTag]		= "Authentic";
 
     constructor ( length, bytes ) {
 	super( length );
 
 	if ( bytes === undefined )
-	    bytes			= crypto.randomBytes( length );
-	else if ( typeof bytes === "string" )
-	    bytes			= codecs.base64.decode( bytes ).slice(6);
+	    bytes			= randomBytes( length );
+	else if ( typeof bytes === "string" ) {
+	    const decoded		= codecs.base64.decode( bytes );
+	    const expected		= this.constructor.prefix;
+	    const prefix		= decoded.subarray( 0, expected.length );
+
+	    if ( !prefix.every( (byte, i) => byte === expected[i] ) || prefix.length !== expected.length )
+		throw new Error(`expected prefix '${codecs.base64.encode( expected )}', found '${codecs.base64.encode( prefix )}'`);
+
+	    bytes			= decoded.slice( expected.length );
+
+	    if ( bytes.length !== length )
+		throw new Error(`expected ${length} bytes after the prefix, found ${bytes.length}`);
+	}
 
 	this.set( bytes, 0 );
-	log.silly("New value for Authentic encoding %s: %s", this.constructor.name, this.toString() );
     }
 
     toString () {
-	return codecs.base64.encode( Buffer.concat([ this.constructor.prefix, this ]) );
+	return codecs.base64.encode( concatBytes( this.constructor.prefix, this ) );
     }
 
     toJSON () {
@@ -62,7 +158,7 @@ class Authentic extends Uint8Array {
 }
 
 class C1 extends Authentic {
-    [Symbol.toStringTag]		= C1.name;
+    [Symbol.toStringTag]		= "C1";
 
     static prefix			= Authentic_prefixes.CollectionID.v1;
     static length			= 26;
@@ -73,7 +169,7 @@ class C1 extends Authentic {
 }
 
 class K1 extends Authentic {
-    [Symbol.toStringTag]		= K1.name;
+    [Symbol.toStringTag]		= "K1";
 
     static prefix			= Authentic_prefixes.AccessKeyID.v1;
     static length			= 12;
@@ -82,14 +178,16 @@ class K1 extends Authentic {
 	if ( typeof bytes === "string" ) {
 	    let pair			= bytes.split(".");
 
-	    assert( pair.length === 2, `encoding expects 2 parts separated by '.', found ${pair.length} part(s)` );
-	    assert( secret === undefined, `Cannot specify argument[1] (secret) when decoding K1` );
+	    if ( pair.length !== 2 )
+		throw new Error(`encoding expects 2 parts separated by '.', found ${pair.length} part(s)`);
+	    if ( secret !== undefined )
+		throw new Error(`Cannot specify argument[1] (secret) when decoding K1`);
 
 	    bytes			= pair[0];
 	    secret			= pair[1];
 	}
 	else if ( secret === undefined )
-	    secret			= crypto.randomBytes( 46 );
+	    secret			= randomBytes( 46 );
 
 	if ( typeof secret === "string" )
 	    secret			= codecs.base64.decode( secret );
@@ -105,7 +203,7 @@ class K1 extends Authentic {
 }
 
 class U1 extends Authentic {
-    [Symbol.toStringTag]		= U1.name;
+    [Symbol.toStringTag]		= "U1";
 
     static prefix			= Authentic_prefixes.CredentialID.v1;
     static length			= 26;
@@ -115,57 +213,62 @@ class U1 extends Authentic {
     }
 }
 
-const authentic_codecs			= [C1, K1, U1];
 
+export const base64			= {
+    encode ( bytes ) {
+	if ( typeof bytes === "number" )
+	    bytes			= randomBytes( bytes );
 
-const codecs				= {
-    base64: {
-	encode ( bytes ) {
-	    if ( typeof bytes === "number" )
-		bytes			= crypto.randomBytes( bytes );
-
-	    return Buffer.from(bytes).toString("base64")
-		.replace(/\//g, "_")
-		.replace(/\+/g, "-");
-	},
-	decode ( encoding ) {
-	    return Buffer.from(
-		encoding
-		    .replace(/\_/g, "/")
-		    .replace(/\-/g, "+"),
-		"base64"
-	    );
-	},
+	return base64Encode( toBytes( bytes ) )
+	    .replace(/\//g, "_")
+	    .replace(/\+/g, "-");
     },
-    digest: {
-	encode ( bytes ) {
-	    const hash			= crypto.createHash("sha512");
-	    hash.update( Buffer.from(bytes) );
-	    return multihash.encode( hash.digest(), "sha2-512" ).toString("base64");
-	},
-	decode ( encoding ) {
-	    const config		= multihash.decode( Buffer.from( encoding, "base64" ) );
-
-	    assert( config.code === 19, "Multihash is expected to be 'sha2-512', not ${config.name}" );
-	    assert( config.length === 64, "sha2-512 digest should be 64 bytes, not ${config.length}" );
-
-	    return config.digest;
-	},
-	verify ( bytes, digest ) {
-	    if ( typeof bytes === "string" )
-		bytes			= Buffer.from( bytes, "base64" );
-
-	    if ( typeof digest !== "string" )
-		digest			= digest.toString("base64");
-
-	    return this.encode( bytes ) === digest;
-	},
-    },
-    authentic: {
-	C1,
-	K1,
-	U1,
+    decode ( encoding ) {
+	return base64Decode( encoding );
     },
 };
 
-module.exports				= codecs;
+export const digest			= {
+    encode ( bytes ) {
+	const hash			= sha512( toBytes( bytes ) );
+	return base64Encode( concatBytes( [ SHA2_512_CODE, hash.length ], hash ) );
+    },
+    decode ( encoding ) {
+	const bytes			= base64Decode( encoding );
+	const [ code, i ]		= readVarint( bytes, 0 );
+	const [ length, start ]		= readVarint( bytes, i );
+
+	if ( bytes.length - start !== length )
+	    throw new Error("multihash length inconsistent");
+
+	if ( code !== SHA2_512_CODE )
+	    throw new Error(`Multihash is expected to be 'sha2-512', not code 0x${code.toString(16)}`);
+	if ( length !== SHA2_512_LENGTH )
+	    throw new Error(`sha2-512 digest should be ${SHA2_512_LENGTH} bytes, not ${length}`);
+
+	return bytes.slice( start );
+    },
+    verify ( bytes, digest ) {
+	if ( typeof bytes === "string" )
+	    bytes			= base64Decode( bytes );
+
+	if ( typeof digest !== "string" )
+	    digest			= base64Encode( toBytes( digest ) );
+
+	return this.encode( bytes ) === digest;
+    },
+};
+
+export const authentic			= {
+    C1,
+    K1,
+    U1,
+};
+
+const codecs				= {
+    base64,
+    digest,
+    authentic,
+};
+
+export default codecs;
