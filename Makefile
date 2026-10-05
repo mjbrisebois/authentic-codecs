@@ -15,6 +15,7 @@ build:			node_modules
 #
 test:			build
 	npx mocha --recursive ./tests
+	node scripts/test-workerd.js
 test-debug:		build
 	LOG_LEVEL=silly npx mocha --recursive ./tests
 
@@ -22,6 +23,9 @@ test-unit:		build
 	npx mocha ./tests/unit
 test-unit-debug:	build
 	LOG_LEVEL=silly npx mocha ./tests/unit
+
+test-workerd:		build
+	node scripts/test-workerd.js
 
 
 #
