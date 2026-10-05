@@ -17,6 +17,10 @@ required. This release contains breaking changes; see [Upgrading](#upgrading) be
 - **Breaking:** errors are thrown as `Error` instead of Node's `AssertionError`.
 - **Breaking:** decoding a `C1`, `K1` or `U1` from a string checks the type prefix and the exact
   byte length.
+- **Breaking:** `digest.encode()` outputs URL-safe base64 (`-` and `_`) like the rest of the
+  package, instead of standard base64 (`+` and `/`).
+- `digest.verify()` compares bytes instead of strings, so digests in either alphabet verify. The
+  comparison is constant-time.
 - SHA-512 is computed with `@noble/hashes`; multihash framing is done internally.
 
 ### Fixed
@@ -101,6 +105,16 @@ Decoding a string now throws when:
 Previously the prefix was discarded unchecked, short values were padded with zero bytes, and long
 values failed with a `RangeError`. If you may hold values that were accepted before, validate them
 before upgrading, or wrap decoding in `try`/`catch`.
+
+### Digest encoding
+
+**Affected if:** you store digests from `digest.encode()` and later compare or look them up as
+strings yourself, for example a database query by digest.
+
+New digests use URL-safe base64, so they no longer equal digests stored by 0.1 whenever the encoding
+contains `+` or `/`. `digest.verify()` and `digest.decode()` accept both forms, so code that only
+uses those keeps working with stored digests. For string lookups, either convert stored digests
+once (replace `+` with `-` and `/` with `_`), or look up both forms.
 
 ### Logging
 

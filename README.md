@@ -22,7 +22,7 @@ A `K1` also has a 46-byte secret. Together they form an access key: the ID and t
 joined by `.`.
 
 The package also includes a URL-safe base64 codec and SHA-512 digests encoded as
-[multihashes](https://multiformats.io/multihash/).
+[multihashes](https://multiformats.io/multihash/), also in URL-safe base64.
 
 It uses only web-standard APIs, so it runs in Node.js 20.19+, Cloudflare Workers (without the
 `nodejs_compat` flag) and browsers.
@@ -57,7 +57,7 @@ base64.encode( new Uint8Array([ 251, 255 ]) );   // "-_8="
 base64.encode( 32 );                             // 32 random bytes, encoded
 base64.decode( "-_8=" );                         // Uint8Array [ 251, 255 ]
 
-// SHA-512 multihash, as standard base64
+// SHA-512 multihash, as URL-safe base64
 const hash = digest.encode( key.secret );
 digest.verify( key.secret, hash );      // true
 digest.decode( hash );                  // Uint8Array(64), the raw digest

@@ -228,10 +228,27 @@ export const base64			= {
     },
 };
 
+function sha512Multihash ( bytes ) {
+    const hash				= sha512( toBytes( bytes ) );
+    return concatBytes( [ SHA2_512_CODE, hash.length ], hash );
+}
+
+// Runs in time independent of where the arrays first differ
+function equalBytes ( a, b ) {
+    if ( a.length !== b.length )
+	return false;
+
+    let diff				= 0;
+    for ( let i = 0; i < a.length; i++ )
+	diff			       |= a[i] ^ b[i];
+
+    return diff === 0;
+}
+
+
 export const digest			= {
     encode ( bytes ) {
-	const hash			= sha512( toBytes( bytes ) );
-	return base64Encode( concatBytes( [ SHA2_512_CODE, hash.length ], hash ) );
+	return base64.encode( sha512Multihash( bytes ) );
     },
     decode ( encoding ) {
 	const bytes			= base64Decode( encoding );
@@ -248,14 +265,16 @@ export const digest			= {
 
 	return bytes.slice( start );
     },
+    // Compares bytes rather than strings, so digests in either base64 alphabet verify
     verify ( bytes, digest ) {
 	if ( typeof bytes === "string" )
 	    bytes			= base64Decode( bytes );
 
-	if ( typeof digest !== "string" )
-	    digest			= base64Encode( toBytes( digest ) );
+	digest				= typeof digest === "string"
+	    ? base64Decode( digest )
+	    : toBytes( digest );
 
-	return this.encode( bytes ) === digest;
+	return equalBytes( sha512Multihash( bytes ), digest );
     },
 };
 
