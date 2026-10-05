@@ -140,6 +140,9 @@ class Authentic extends Uint8Array {
 		throw new Error(`expected prefix '${codecs.base64.encode( expected )}', found '${codecs.base64.encode( prefix )}'`);
 
 	    bytes			= decoded.slice( expected.length );
+
+	    if ( bytes.length !== length )
+		throw new Error(`expected ${length} bytes after the prefix, found ${bytes.length}`);
 	}
 
 	this.set( bytes, 0 );

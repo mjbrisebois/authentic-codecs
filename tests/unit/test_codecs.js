@@ -64,6 +64,18 @@ function c1_tests () {
 	expect( () => new codecs.authentic.C1( K1_ENCODED ) ).to.throw( "expected prefix 'Auth_C1-', found 'Auth_K1-'" );
 	expect( () => new codecs.authentic.C1( U1_ENCODED ) ).to.throw( "expected prefix 'Auth_C1-', found 'Auth_U1-'" );
     });
+
+    it("should fail to decode a string that is too short", async () => {
+	const truncated			= C1_ENCODED.slice( 0, -4 );
+
+	expect( () => new codecs.authentic.C1( truncated ) ).to.throw( "expected 26 bytes after the prefix, found 24" );
+    });
+
+    it("should fail to decode a string that is too long", async () => {
+	const extended			= codecs.base64.encode([ ...codecs.base64.decode( C1_ENCODED ), 0 ]);
+
+	expect( () => new codecs.authentic.C1( extended ) ).to.throw( "expected 26 bytes after the prefix, found 27" );
+    });
 }
 
 function k1_tests () {
@@ -124,6 +136,12 @@ function k1_tests () {
 	const secret			= K1_ACCESS_KEY.split(".")[1];
 
 	expect( () => new codecs.authentic.K1( C1_ENCODED + "." + secret ) ).to.throw( "expected prefix 'Auth_K1-', found 'Auth_C1-'" );
+    });
+
+    it("should fail to decode an access key whose ID is too short", async () => {
+	const secret			= K1_ACCESS_KEY.split(".")[1];
+
+	expect( () => new codecs.authentic.K1( K1_ENCODED.slice( 0, -4 ) + "." + secret ) ).to.throw( "expected 12 bytes after the prefix, found 9" );
     });
 
     it("should fail to decode a string when a secret argument is also given", async () => {
