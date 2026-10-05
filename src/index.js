@@ -241,11 +241,10 @@ export const digest			= {
 	if ( bytes.length - start !== length )
 	    throw new Error("multihash length inconsistent");
 
-	// Messages kept as-is from the previous implementation (placeholders are not filled)
 	if ( code !== SHA2_512_CODE )
-	    throw new Error("Multihash is expected to be 'sha2-512', not ${config.name}");
+	    throw new Error(`Multihash is expected to be 'sha2-512', not code 0x${code.toString(16)}`);
 	if ( length !== SHA2_512_LENGTH )
-	    throw new Error("sha2-512 digest should be 64 bytes, not ${config.length}");
+	    throw new Error(`sha2-512 digest should be ${SHA2_512_LENGTH} bytes, not ${length}`);
 
 	return bytes.slice( start );
     },

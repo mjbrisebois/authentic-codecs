@@ -204,7 +204,13 @@ function digest_tests () {
     it("should fail to decode a multihash that is not sha2-512", async () => {
 	const sha256_multihash		= codecs.base64.encode( Uint8Array.from([ 0x12, 0x20, ...new Array(32).fill(0) ]) );
 
-	expect( () => codecs.digest.decode( sha256_multihash ) ).to.throw( "Multihash is expected to be 'sha2-512'" );
+	expect( () => codecs.digest.decode( sha256_multihash ) ).to.throw( "Multihash is expected to be 'sha2-512', not code 0x12" );
+    });
+
+    it("should fail to decode a sha2-512 multihash with the wrong digest length", async () => {
+	const short_multihash		= codecs.base64.encode( Uint8Array.from([ 0x13, 0x20, ...new Array(32).fill(0) ]) );
+
+	expect( () => codecs.digest.decode( short_multihash ) ).to.throw( "sha2-512 digest should be 64 bytes, not 32" );
     });
 
     it("should verify bytes given as a base64 string against a string digest", async () => {
