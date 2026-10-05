@@ -1,0 +1,33 @@
+name: Test
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [ 20.19.x, 22.x, 24.x ]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run test:node
+
+  # Miniflare requires Node.js 22+, so the workerd run uses a single current version
+  workerd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: npm
+      - run: npm ci
+      - run: npm run test:workerd
